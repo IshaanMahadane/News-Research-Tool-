@@ -1,38 +1,32 @@
 import os
-import time
-import pickle
 import streamlit as st
 from dotenv import load_dotenv
-from langchain import OpenAI
-from langchain.chains import RetrievalQAWithSourcesChain
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import UnstructuredURLLoader
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+
+from langchain_community.document_loaders import UnstructuredURLLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
 # -------------------- LOAD API KEY --------------------
-load_dotenv()  # Load variables from .env
-api_key = os.getenv("OPENAI_API_KEY")
+load_dotenv()
+api_key = os.environ.get("OPENAI_API_KEY")
 
 if not api_key or not api_key.startswith("sk-"):
     st.error("❌ OpenAI API key not found. Please check your .env file.")
     st.stop()
 
 # -------------------- STREAMLIT UI --------------------
-st.title(" SmartBot: News Research Tool 📈")
+st.title("🧠 SmartBot: News Research Tool")
 st.sidebar.title("🔗 Enter News Article URLs")
 
-urls = []
-for i in range(3):
-    url = st.sidebar.text_input(f"URL {i+1}")
-    urls.append(url.strip())
-
+urls = [st.sidebar.text_input(f"URL {i+1}") for i in range(3)]
 process_url_clicked = st.sidebar.button("Process URLs")
-file_path = "faiss_store_openai.pkl"
+index_folder = "faiss_index"
 main_placeholder = st.empty()
-
-# Initialize the OpenAI model
-llm = OpenAI(temperature=0.9, max_tokens=500)
 
 # -------------------- PROCESS URLS --------------------
 if process_url_clicked:
@@ -41,22 +35,16 @@ if process_url_clicked:
         main_placeholder.text("📡 Loading data from URLs...")
         data = loader.load()
 
-        text_splitter = RecursiveCharacterTextSplitter(
-            separators=['\n\n', '\n', '.', ','],
-            chunk_size=1000
-        )
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
         main_placeholder.text("✂️ Splitting text into chunks...")
         docs = text_splitter.split_documents(data)
 
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
         main_placeholder.text("⚙️ Building FAISS index with OpenAI embeddings...")
         vectorstore_openai = FAISS.from_documents(docs, embeddings)
 
-        # Save the FAISS index
-        with open(file_path, "wb") as f:
-            pickle.dump(vectorstore_openai, f)
-
-        main_placeholder.success("✅ URLs processed successfully and FAISS index saved!")
+        vectorstore_openai.save_local(index_folder)
+        main_placeholder.success("✅ URLs processed and FAISS index saved!")
 
     except Exception as e:
         st.error(f"❌ Error while processing URLs: {e}")
@@ -65,27 +53,27 @@ if process_url_clicked:
 query = main_placeholder.text_input("💬 Ask a question about the processed articles:")
 
 if query:
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "rb") as f:
-                vectorstore = pickle.load(f)
+    try:
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+        vectorstore = FAISS.load_local(index_folder, embeddings, allow_dangerous_deserialization=True)
 
-            chain = RetrievalQAWithSourcesChain.from_llm(
-                llm=llm,
-                retriever=vectorstore.as_retriever()
-            )
-            result = chain({"question": query}, return_only_outputs=True)
+        retriever = vectorstore.as_retriever()
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=api_key)
 
-            st.header("🧾 Answer")
-            st.write(result.get("answer", "No answer generated."))
+        prompt = ChatPromptTemplate.from_template(
+            "Answer the question based on the context:\n\n{context}\n\nQuestion: {question}"
+        )
+        document_chain = prompt | llm | StrOutputParser()
+        retriever_chain = RunnableParallel({
+            "context": retriever,
+            "question": RunnablePassthrough()
+        })
+        retrieval_chain = retriever_chain | document_chain
 
-            sources = result.get("sources", "")
-            if sources:
-                st.subheader("📚 Sources:")
-                for source in sources.split("\n"):
-                    st.write(source.strip())
+        result = retrieval_chain.invoke(query)
 
-        except Exception as e:
-            st.error(f"❌ Error while retrieving answer: {e}")
-    else:
-        st.warning("⚠️ Please process the URLs first to build the FAISS index.")
+        st.header("🧾 Answer")
+        st.write(result)
+
+    except Exception as e:
+        st.error(f"❌ Error while retrieving answer: {e}")
