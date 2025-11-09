@@ -106,3 +106,4 @@ if query:
 
     except Exception as e:
         st.error(f"❌ Error while retrieving answer: {e}")
+# rebuild trigger Sun Nov  9 15:30:08 IST 2025
