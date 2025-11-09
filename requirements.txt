@@ -1,11 +1,21 @@
+# Prevent Streamlit from defaulting to Python 3.13
+python_version < "3.11"
+
+# Streamlit and utilities
 streamlit==1.31.0
 python-dotenv==1.0.0
+
+# OpenAI + embeddings
 openai==1.28.2
 tiktoken==0.5.2
+
+# LangChain compatible versions (stable 0.1.x stack)
 langchain==0.1.16
 langchain-core==0.1.42
 langchain-community==0.0.32
 langchain-openai==0.0.5
+
+# Document and text processing
 unstructured==0.9.2
 faiss-cpu==1.12.0
 python-magic==0.4.27
