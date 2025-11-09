@@ -1,10 +1,10 @@
 streamlit==1.31.0
 python-dotenv==1.0.0
-openai==1.10.0
+openai==1.31.0
 tiktoken
-langchain==0.1.16
-langchain-core==0.1.42
-langchain-community==0.0.32
+langchain==0.1.20
+langchain-core==0.2.6
+langchain-community==0.0.38
 langchain-openai==0.1.8
 unstructured==0.9.2
 faiss-cpu==1.12.0
