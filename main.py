@@ -11,25 +11,30 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
+
 # -------------------- INITIAL SETUP --------------------
 st.set_page_config(page_title="🧠 SmartBot: News Research Tool", page_icon="📰")
 
 # Load environment variables
 load_dotenv()
 
-# Load OpenAI API key from environment or Streamlit secrets
+# Load OpenAI API key from environment or Streamlit Secrets
 api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 
 if not api_key or not api_key.startswith("sk-"):
-    st.error("❌ OpenAI API key not found. Set it in .env (local) or Secrets (Streamlit Cloud).")
+    st.error(
+        "❌ OpenAI API key not found. Set it in .env (for local use) "
+        "or in Streamlit Secrets (for Cloud)."
+    )
     st.stop()
 
-# Make it globally accessible to LangChain
+# Make API key globally available to LangChain and OpenAI
 os.environ["OPENAI_API_KEY"] = api_key
 
-# Fix for NLTK 'punkt_tab' issue (required by unstructured)
+# Download required NLTK resources (quiet mode)
 nltk.download("punkt_tab", quiet=True)
 nltk.download("punkt", quiet=True)
+nltk.download("averaged_perceptron_tagger_eng", quiet=True)
 
 # -------------------- STREAMLIT UI --------------------
 st.title("🧠 SmartBot: News Research Tool")
@@ -40,7 +45,7 @@ process_url_clicked = st.sidebar.button("Process URLs")
 index_folder = "faiss_index"
 main_placeholder = st.empty()
 
-# -------------------- PROCESS URLS (FAISS CREATION) --------------------
+# -------------------- PROCESS URLS (BUILD FAISS INDEX) --------------------
 if process_url_clicked:
     try:
         valid_urls = [u.strip() for u in urls if u.strip()]
@@ -56,7 +61,7 @@ if process_url_clicked:
         main_placeholder.text("✂️ Splitting text into chunks...")
         docs = text_splitter.split_documents(data)
 
-        embeddings = OpenAIEmbeddings()  # No openai_api_key argument
+        embeddings = OpenAIEmbeddings()  # Uses API key from env
         main_placeholder.text("⚙️ Building FAISS index with OpenAI embeddings...")
         vectorstore_openai = FAISS.from_documents(docs, embeddings)
 
@@ -76,7 +81,9 @@ if query:
             st.stop()
 
         embeddings = OpenAIEmbeddings()
-        vectorstore = FAISS.load_local(index_folder, embeddings, allow_dangerous_deserialization=True)
+        vectorstore = FAISS.load_local(
+            index_folder, embeddings, allow_dangerous_deserialization=True
+        )
 
         retriever = vectorstore.as_retriever()
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
@@ -84,10 +91,11 @@ if query:
         prompt = ChatPromptTemplate.from_template(
             "Answer the question based on the context:\n\n{context}\n\nQuestion: {question}"
         )
+
         document_chain = prompt | llm | StrOutputParser()
         retriever_chain = RunnableParallel({
             "context": retriever,
-            "question": RunnablePassthrough()
+            "question": RunnablePassthrough(),
         })
         retrieval_chain = retriever_chain | document_chain
 
