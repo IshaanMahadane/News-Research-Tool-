@@ -11,5 +11,3 @@ python-magic==0.4.27
 typing_extensions>=4.12.0
 pydantic==2.9.2
 pillow==10.4.0
-# Optional pure-Python fallback for tiktoken
-fake-tiktoken @ git+https://github.com/jameswenzel/fake-tiktoken.git
