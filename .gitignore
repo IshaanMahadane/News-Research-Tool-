@@ -7,6 +7,11 @@ __pycache__/
 *.so
 .env
 
+
+*.pkl
+faiss_index/
+
+
 # Distribution / packaging
 .Python
 build/
