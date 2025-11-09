@@ -16,8 +16,8 @@ from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+import pickle
 
-# --- Force-fix proxies error dynamically ---
 class SafeOpenAIEmbeddings(_BaseOpenAIEmbeddings):
     def __init__(self, *args, **kwargs):
         kwargs.pop("proxies", None)
@@ -26,7 +26,6 @@ class SafeOpenAIEmbeddings(_BaseOpenAIEmbeddings):
 import langchain_openai
 langchain_openai.OpenAIEmbeddings = SafeOpenAIEmbeddings
 
-# --- App logic ---
 st.set_page_config(page_title="🧠 SmartBot: News Research Tool", page_icon="📰")
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
@@ -62,7 +61,10 @@ if process_url_clicked:
         main_placeholder.text("⚙️ Building Chroma index...")
         vectorstore = Chroma.from_documents(docs, embeddings, persist_directory=index_folder)
         vectorstore.persist()
-        main_placeholder.success("✅ URLs processed and index saved!")
+        pickle_path = os.path.join(index_folder, "embeddings.pkl")
+        with open(pickle_path, "wb") as f:
+            pickle.dump({"documents": docs, "embedding_model": "text-embedding-3-small"}, f)
+        main_placeholder.success(f"✅ URLs processed and embeddings saved to {pickle_path}!")
     except Exception as e:
         st.error(f"❌ Error while processing URLs: {e}")
 
@@ -80,10 +82,7 @@ if query:
             "Answer the question based on the context:\n\n{context}\n\nQuestion: {question}"
         )
         document_chain = prompt | llm | StrOutputParser()
-        retriever_chain = RunnableParallel({
-            "context": retriever,
-            "question": RunnablePassthrough(),
-        })
+        retriever_chain = RunnableParallel({"context": retriever, "question": RunnablePassthrough()})
         result = (retriever_chain | document_chain).invoke(query)
         st.header("🧾 Answer")
         st.write(result)
