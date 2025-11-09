@@ -1,7 +1,7 @@
 streamlit==1.22.0
 python-dotenv==1.0.0
 openai==1.10.0
-tiktoken==0.5.2
+tiktoken==0.5.1
 langchain==0.1.16
 langchain-core==0.1.42
 langchain-community==0.0.32
