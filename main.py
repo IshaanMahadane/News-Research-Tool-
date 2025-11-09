@@ -11,11 +11,16 @@ import nltk
 from dotenv import load_dotenv
 from langchain_community.document_loaders import UnstructuredURLLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings as OriginalOpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+
+class OpenAIEmbeddings(OriginalOpenAIEmbeddings):
+    def __init__(self, **kwargs):
+        kwargs.pop("proxies", None)
+        super().__init__(**kwargs)
 
 st.set_page_config(page_title="🧠 SmartBot: News Research Tool", page_icon="📰")
 load_dotenv()
