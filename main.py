@@ -47,7 +47,7 @@ if process_url_clicked:
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         main_placeholder.text("✂️ Splitting text into chunks...")
         docs = text_splitter.split_documents(data)
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
         main_placeholder.text("⚙️ Building Chroma index with OpenAI embeddings...")
         vectorstore_chroma = Chroma.from_documents(docs, embeddings, persist_directory=index_folder)
         vectorstore_chroma.persist()
@@ -62,7 +62,7 @@ if query:
         if not os.path.exists(index_folder):
             st.warning("⚠️ Please process URLs first to create the Chroma index.")
             st.stop()
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
         vectorstore = Chroma(persist_directory=index_folder, embedding_function=embeddings)
         retriever = vectorstore.as_retriever()
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
