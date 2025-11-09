@@ -12,3 +12,4 @@ python-magic==0.4.27
 typing_extensions>=4.7.0
 pydantic>=2.4.0
 pillow>=10.3.0
+nltk
