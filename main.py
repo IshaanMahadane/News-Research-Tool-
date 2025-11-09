@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import UnstructuredURLLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
@@ -42,10 +42,10 @@ st.sidebar.title("🔗 Enter News Article URLs")
 
 urls = [st.sidebar.text_input(f"URL {i+1}") for i in range(3)]
 process_url_clicked = st.sidebar.button("Process URLs")
-index_folder = "faiss_index"
+index_folder = "chroma_db"
 main_placeholder = st.empty()
 
-# -------------------- PROCESS URLS (BUILD FAISS INDEX) --------------------
+# -------------------- PROCESS URLS (BUILD VECTOR DB) --------------------
 if process_url_clicked:
     try:
         valid_urls = [u.strip() for u in urls if u.strip()]
@@ -62,11 +62,11 @@ if process_url_clicked:
         docs = text_splitter.split_documents(data)
 
         embeddings = OpenAIEmbeddings()  # Uses API key from env
-        main_placeholder.text("⚙️ Building FAISS index with OpenAI embeddings...")
-        vectorstore_openai = FAISS.from_documents(docs, embeddings)
+        main_placeholder.text("⚙️ Building Chroma index with OpenAI embeddings...")
+        vectorstore_chroma = Chroma.from_documents(docs, embeddings, persist_directory=index_folder)
 
-        vectorstore_openai.save_local(index_folder)
-        main_placeholder.success("✅ URLs processed and FAISS index saved!")
+        vectorstore_chroma.persist()
+        main_placeholder.success("✅ URLs processed and Chroma index saved!")
 
     except Exception as e:
         st.error(f"❌ Error while processing URLs: {e}")
@@ -77,12 +77,13 @@ query = main_placeholder.text_input("💬 Ask a question about the processed art
 if query:
     try:
         if not os.path.exists(index_folder):
-            st.warning("⚠️ Please process URLs first to create the FAISS index.")
+            st.warning("⚠️ Please process URLs first to create the Chroma index.")
             st.stop()
 
         embeddings = OpenAIEmbeddings()
-        vectorstore = FAISS.load_local(
-            index_folder, embeddings, allow_dangerous_deserialization=True
+        vectorstore = Chroma(
+            persist_directory=index_folder,
+            embedding_function=embeddings
         )
 
         retriever = vectorstore.as_retriever()
@@ -106,4 +107,5 @@ if query:
 
     except Exception as e:
         st.error(f"❌ Error while retrieving answer: {e}")
-# rebuild trigger Sun Nov  9 15:30:08 IST 2025
+
+# rebuild trigger Sun Nov 9 2025 — Chroma version (Python 3.13 compatible)
